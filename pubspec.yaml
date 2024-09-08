@@ -18,6 +18,7 @@ dependencies:
   uuid: ^3.0.4
   flutter_local_notifications: ^17.2.1
   timezone: ^0.9.1
+  fl_chart: ^0.55.0
 
 dev_dependencies:
   flutter_test:
@@ -27,3 +28,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/ald_system_diagram.png
+

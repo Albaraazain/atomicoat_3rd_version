@@ -8,6 +8,10 @@ import 'screens/recipe_management_screen.dart';
 import 'screens/log_view_screen.dart';
 import 'screens/alarm_management_screen.dart';
 import 'screens/maintenance_screen.dart';
+import 'screens/reactor_control_screen.dart';
+
+import 'models/reactor_state.dart';  // Add this import
+
 
 void main() {
   runApp(
@@ -15,6 +19,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (context) => DashboardState()),
         ChangeNotifierProvider(create: (context) => RecipeState()),
+        ChangeNotifierProvider(create: (context) => ReactorState()),  // Add this line
       ],
       child: ALDMachineApp(),
     ),
@@ -48,6 +53,7 @@ class _HomePageState extends State<HomePage> {
     LogViewScreen(),
     AlarmManagementScreen(),
     MaintenanceScreen(),
+    ReactorControlScreen(), // Added Reactor Control Screen
   ];
 
   void _onItemTapped(int index) {
@@ -83,6 +89,10 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.build),
             label: 'Maintenance',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.science),
+            label: 'Reactor',
           ),
         ],
         currentIndex: _selectedIndex,

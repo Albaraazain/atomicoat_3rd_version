@@ -1,40 +1,85 @@
 // lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/component_type.dart';
 import '../models/dashboard_state.dart';
 import '../models/recipe_state.dart';
+import '../models/reactor_state.dart';
+import '../widgets/interactive_system_diagram.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
+  @override
+  _DashboardScreenState createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  bool _showSystemDiagram = false;
+
   @override
   Widget build(BuildContext context) {
-    return Consumer2<DashboardState, RecipeState>(
-      builder: (context, dashboardState, recipeState, child) {
+    return Consumer3<DashboardState, RecipeState, ReactorState>(
+      builder: (context, dashboardState, recipeState, reactorState, child) {
         return SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (dashboardState.errorMessage != null)
-                  _buildErrorMessage(context, dashboardState),
-                _buildRecipeSelector(context, dashboardState, recipeState),
-                SizedBox(height: 20),
-                _buildStatusIndicator(dashboardState),
-                SizedBox(height: 20),
-                _buildProgressIndicator(dashboardState),
-                SizedBox(height: 20),
-                _buildLoopStack(dashboardState),
-                SizedBox(height: 20),
-                _buildKeyParameters(dashboardState),
-                SizedBox(height: 20),
-                _buildControlButtons(context, dashboardState),
-                SizedBox(height: 20),
-                _buildRecentAlerts(dashboardState),
+                _buildViewToggle(),
+                if (_showSystemDiagram)
+                  _buildSystemDiagramView(reactorState)
+                else
+                  ...[
+                    if (dashboardState.errorMessage != null)
+                      _buildErrorMessage(context, dashboardState),
+                    _buildRecipeSelector(context, dashboardState, recipeState),
+                    SizedBox(height: 20),
+                    _buildStatusIndicator(dashboardState),
+                    SizedBox(height: 20),
+                    _buildProgressIndicator(dashboardState),
+                    SizedBox(height: 20),
+                    _buildLoopStack(dashboardState),
+                    SizedBox(height: 20),
+                    _buildKeyParameters(dashboardState),
+                    SizedBox(height: 20),
+                    _buildControlButtons(context, dashboardState),
+                    SizedBox(height: 20),
+                    _buildRecentAlerts(dashboardState),
+                  ],
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildViewToggle() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text(_showSystemDiagram ? 'System Diagram' : 'Dashboard'),
+        Switch(
+          value: _showSystemDiagram,
+          onChanged: (value) {
+            setState(() {
+              _showSystemDiagram = value;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSystemDiagramView(ReactorState reactorState) {
+    return Container(
+      height: 500, // Adjust as needed
+      child: InteractiveSystemDiagram(
+        reactorState: reactorState,
+        onComponentTap: (ComponentType type) {
+          // Handle component tap if needed
+        },
+      ),
     );
   }
 
