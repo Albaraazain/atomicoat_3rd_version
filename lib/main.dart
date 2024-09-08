@@ -6,6 +6,8 @@ import 'models/recipe_state.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/recipe_management_screen.dart';
 import 'screens/log_view_screen.dart';
+import 'screens/alarm_management_screen.dart';
+import 'screens/maintenance_screen.dart';
 
 void main() {
   runApp(
@@ -40,10 +42,12 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  static List<Widget> _widgetOptions = <Widget>[
+  static final List<Widget> _widgetOptions = <Widget>[
     DashboardScreen(),
     RecipeManagementScreen(),
     LogViewScreen(),
+    AlarmManagementScreen(),
+    MaintenanceScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -72,9 +76,19 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.list),
             label: 'Log',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.alarm),
+            label: 'Alarms',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.build),
+            label: 'Maintenance',
+          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.amber[800],
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
         onTap: _onItemTapped,
       ),
     );
