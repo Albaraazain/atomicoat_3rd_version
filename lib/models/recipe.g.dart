@@ -12,12 +12,14 @@ Recipe _$RecipeFromJson(Map<String, dynamic> json) => Recipe(
       steps: (json['steps'] as List<dynamic>)
           .map((e) => RecipeStep.fromJson(e as Map<String, dynamic>))
           .toList(),
+      substrate: json['substrate'] as String,
     );
 
 Map<String, dynamic> _$RecipeToJson(Recipe instance) => <String, dynamic>{
       'id': instance.id,
       'name': instance.name,
       'steps': instance.steps.map((e) => e.toJson()).toList(),
+      'substrate': instance.substrate,
     };
 
 RecipeStep _$RecipeStepFromJson(Map<String, dynamic> json) => RecipeStep(

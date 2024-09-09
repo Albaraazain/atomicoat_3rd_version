@@ -1,11 +1,10 @@
-// lib/models/dashboard_state.dart
 import 'package:flutter/foundation.dart';
 import '../services/mock_ald_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/process_timeline.dart';
 import 'alarm.dart';
 import 'recipe.dart';
 import 'maintenance_task.dart';
-
 
 class DashboardState extends ChangeNotifier {
   String _currentStep = 'Idle';
@@ -14,7 +13,8 @@ class DashboardState extends ChangeNotifier {
   double _temperature = 0.0;
   double _pressure = 0.0;
   double _gasFlow = 0.0;
-  List<Map<String, String>> _recentAlerts = [];
+  List<Map<String, dynamic>> _recentAlerts = [];
+  List<Map<String, dynamic>> _allAlerts = [];
   String? _errorMessage;
   Recipe? _currentRecipe;
   List<LoopInfo> _currentLoopStack = [];
@@ -24,8 +24,12 @@ class DashboardState extends ChangeNotifier {
   List<Alarm> _alarms = [];
   List<String> _activeAlarms = [];
   List<MaintenanceTask> _maintenanceTasks = [];
-
-
+  double _progress = 0.0;
+  bool _canStart = true;
+  bool _canPause = false;
+  bool _canStop = false;
+  bool _canReset = false;
+  List<ProcessStep> _processSteps = [];
 
   late MockALDService _mockService;
   late NotificationService _notificationService;
@@ -34,28 +38,78 @@ class DashboardState extends ChangeNotifier {
     _mockService = MockALDService(this);
     _notificationService = NotificationService();
   }
-  
+
+  // Getters
   String get currentStep => _currentStep;
   String get elapsedTime => _elapsedTime;
   String get estimatedCompletion => _estimatedCompletion;
   double get temperature => _temperature;
   double get pressure => _pressure;
   double get gasFlow => _gasFlow;
-  List<Map<String, String>> get recentAlerts => _recentAlerts;
+  List<Map<String, dynamic>> get recentAlerts => _recentAlerts;
+  List<Map<String, dynamic>> get allAlerts => _allAlerts;
   String? get errorMessage => _errorMessage;
   Recipe? get currentRecipe => _currentRecipe;
   List<LoopInfo> get currentLoopStack => _currentLoopStack;
   int get currentStepIndex => _currentStepIndex;
   int get totalSteps => _totalSteps;
-
   List<LogEntry> get logEntries => _logEntries;
-
   List<Alarm> get alarms => _alarms;
   List<String> get activeAlarms => _activeAlarms;
-
   List<MaintenanceTask> get maintenanceTasks => _maintenanceTasks;
+  double get progress => _progress;
+  bool get canStart => _canStart;
+  bool get canPause => _canPause;
+  bool get canStop => _canStop;
+  bool get canReset => _canReset;
+  List<ProcessStep> get processSteps => _processSteps;
 
 
+  void updateProgress(double newProgress) {
+    _progress = newProgress;
+    notifyListeners();
+  }
+
+  void updateControlStates({bool? canStart, bool? canPause, bool? canStop, bool? canReset}) {
+    _canStart = canStart ?? _canStart;
+    _canPause = canPause ?? _canPause;
+    _canStop = canStop ?? _canStop;
+    _canReset = canReset ?? _canReset;
+    notifyListeners();
+  }
+
+  void resetProcess() {
+    // Implement reset process logic
+    _currentStepIndex = 0;
+    _progress = 0.0;
+    updateControlStates(canStart: true, canPause: false, canStop: false, canReset: false);
+    notifyListeners();
+  }
+
+  void addAlert(String message) {
+    Map<String, dynamic> newAlert = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'message': message,
+      'time': DateTime.now().toString(),
+      'severity': 'medium',  // or determine severity based on the alert
+    };
+    _recentAlerts.insert(0, newAlert);
+    _allAlerts.insert(0, newAlert);
+    if (_recentAlerts.length > 5) {
+      _recentAlerts.removeLast();
+    }
+    notifyListeners();
+  }
+
+  void dismissAlert(String alertId) {
+    _recentAlerts.removeWhere((alert) => alert['id'] == alertId);
+    _allAlerts.removeWhere((alert) => alert['id'] == alertId);
+    notifyListeners();
+  }
+
+
+
+  // Maintenance task methods
   void addMaintenanceTask(MaintenanceTask task) {
     _maintenanceTasks.add(task);
     _notificationService.scheduleNotification(task);
@@ -91,7 +145,6 @@ class DashboardState extends ChangeNotifier {
     }
   }
 
-
   List<MaintenanceTask> getDueMaintenanceTasks() {
     final now = DateTime.now();
     return _maintenanceTasks.where((task) => !task.isCompleted && task.dueDate.isBefore(now)).toList();
@@ -104,7 +157,7 @@ class DashboardState extends ChangeNotifier {
     }
   }
 
-
+  // Alarm methods
   void addAlarm(Alarm alarm) {
     _alarms.add(alarm);
     notifyListeners();
@@ -150,12 +203,14 @@ class DashboardState extends ChangeNotifier {
     }
   }
 
+  // Recipe methods
   void setCurrentRecipe(Recipe recipe) {
     _currentRecipe = recipe;
     _totalSteps = _mockService.calculateTotalSteps(recipe.steps);
     notifyListeners();
   }
 
+  // Process control methods
   void startProcess() {
     if (_currentRecipe == null) {
       _errorMessage = "No recipe selected. Please select a recipe before starting the process.";
@@ -172,6 +227,22 @@ class DashboardState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void stopProcess() {
+    updateStatus('Stopped', _elapsedTime, '00:00:00');
+    addAlert('Process stopped');
+    addLogEntry('Process stopped', DateTime.now());
+    _mockService.stopSimulation();
+    _currentLoopStack.clear();
+    _currentStepIndex = 0;
+  }
+
+  void pauseProcess() {
+    updateStatus('Paused', _elapsedTime, _estimatedCompletion);
+    addAlert('Process paused');
+    _mockService.stopSimulation();
+  }
+
+  // Update methods
   void updateStatus(String step, String elapsed, String estimated, {List<LoopInfo>? loopStack}) {
     _currentStep = step;
     _elapsedTime = elapsed;
@@ -182,7 +253,6 @@ class DashboardState extends ChangeNotifier {
     notifyListeners();
   }
 
-  @override
   void updateParameters(double temp, double press, double flow) {
     _temperature = temp;
     _pressure = press;
@@ -192,16 +262,6 @@ class DashboardState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addAlert(String message) {
-    _recentAlerts.insert(0, {
-      'message': message,
-      'time': DateTime.now().toString(),
-    });
-    if (_recentAlerts.length > 5) {
-      _recentAlerts.removeLast();
-    }
-    notifyListeners();
-  }
 
   void addLogEntry(String description, DateTime timestamp) {
     _logEntries.add(LogEntry(description, timestamp));
@@ -213,33 +273,16 @@ class DashboardState extends ChangeNotifier {
     notifyListeners();
   }
 
-
-
-  @override
-  void stopProcess() {
-    updateStatus('Stopped', _elapsedTime, '00:00:00');
-    addAlert('Process stopped');
-    addLogEntry('Process stopped', DateTime.now());
-    _mockService.stopSimulation();
-    _currentLoopStack.clear();
-    _currentStepIndex = 0;
-  }
-
-
-  void pauseProcess() {
-    updateStatus('Paused', _elapsedTime, _estimatedCompletion);
-    addAlert('Process paused');
-    _mockService.stopSimulation();
-  }
-
+  // Helper methods
   String _calculateEstimatedCompletion() {
     if (_currentRecipe == null) return '00:00:00';
-    int totalSeconds = _totalSteps; // Now _totalSteps represents the total duration in seconds
+    int totalSeconds = _totalSteps;
     int hours = totalSeconds ~/ 3600;
     int minutes = (totalSeconds % 3600) ~/ 60;
     int seconds = totalSeconds % 60;
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();
@@ -247,10 +290,10 @@ class DashboardState extends ChangeNotifier {
 }
 
 class LogEntry {
-final String description;
-final DateTime timestamp;
+  final String description;
+  final DateTime timestamp;
 
-LogEntry(this.description, this.timestamp);
+  LogEntry(this.description, this.timestamp);
 }
 
 class LoopInfo {
@@ -259,4 +302,3 @@ class LoopInfo {
 
   LoopInfo(this.totalIterations, this.currentIteration);
 }
-

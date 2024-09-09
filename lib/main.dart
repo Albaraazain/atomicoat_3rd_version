@@ -3,15 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'models/dashboard_state.dart';
 import 'models/recipe_state.dart';
+import 'models/reactor_state.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/recipe_management_screen.dart';
 import 'screens/log_view_screen.dart';
 import 'screens/alarm_management_screen.dart';
 import 'screens/maintenance_screen.dart';
 import 'screens/reactor_control_screen.dart';
-
-import 'models/reactor_state.dart';  // Add this import
-
+import 'styles/theme.dart';
 
 void main() {
   runApp(
@@ -19,7 +18,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (context) => DashboardState()),
         ChangeNotifierProvider(create: (context) => RecipeState()),
-        ChangeNotifierProvider(create: (context) => ReactorState()),  // Add this line
+        ChangeNotifierProvider(create: (context) => ReactorState()),
       ],
       child: ALDMachineApp(),
     ),
@@ -31,14 +30,12 @@ class ALDMachineApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'ALD Machine Control',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
+      theme: aldTheme(),
       home: HomePage(),
     );
   }
 }
+
 
 class HomePage extends StatefulWidget {
   @override
@@ -53,7 +50,7 @@ class _HomePageState extends State<HomePage> {
     LogViewScreen(),
     AlarmManagementScreen(),
     MaintenanceScreen(),
-    ReactorControlScreen(), // Added Reactor Control Screen
+    ReactorControlScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -96,7 +93,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.amber[800],
+        selectedItemColor: Theme.of(context).primaryColor,
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         onTap: _onItemTapped,

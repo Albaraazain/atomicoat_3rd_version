@@ -1,4 +1,3 @@
-// lib/models/recipe.dart
 import 'package:json_annotation/json_annotation.dart';
 
 part 'recipe.g.dart';
@@ -9,9 +8,11 @@ class Recipe {
   String name;
   List<RecipeStep> steps;
 
-  Recipe({required this.id, required this.name, required this.steps});
+  Recipe({required this.id, required this.name, required this.steps, required String substrate});
 
   factory Recipe.fromJson(Map<String, dynamic> json) => _$RecipeFromJson(json);
+
+  get substrate => null;
   Map<String, dynamic> toJson() => _$RecipeToJson(this);
 }
 

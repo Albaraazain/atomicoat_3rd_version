@@ -1,4 +1,4 @@
-// lib/models/reactor_state.dart
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import '../services/ald_hardware_interface.dart';
@@ -20,66 +20,55 @@ class PrecursorContainer {
   });
 }
 
-
-
 class ReactorState extends ChangeNotifier {
   final ALDHardwareInterface _hardwareInterface = ALDHardwareInterface();
   Timer? _updateTimer;
 
-
-  // N2 Generator
+  // Reactor components
   double _n2Purity = 99.9;
   double _n2FlowRate = 20.0;
-
-  // Mass Flow Controller
   double _mfcFlowRate = 0.0;
   double _mfcPressure = 0.0;
   double _mfcCorrection = 0.0;
-
-  // Valves
   List<bool> _valveStatuses = [false, false, false];
-
-  // Precursor Containers
-  List<PrecursorContainer> _precursorContainers = [
-    PrecursorContainer(),
-    PrecursorContainer(),
-    PrecursorContainer(),
-  ];
-
-  // Chamber
+  List<PrecursorContainer> _precursorContainers = List.generate(3, (_) => PrecursorContainer());
   double _chamberTemperature = 25.0;
   double _chamberPressure = 1.0;
-
-  // Heaters
   double _frontlineHeaterTemperature = 25.0;
   double _backlineHeaterTemperature = 25.0;
-
-  // Pressure Controller
   double _pressureSetpoint = 1.0;
   double _actualPressure = 1.0;
-
-  // Pump
   bool _pumpStatus = false;
 
-  // System Status
+  // System status
   String _systemStatus = 'Normal';
 
-  // Recipe Execution
+  // Recipe execution
   Recipe? _currentRecipe;
   int _currentStepIndex = 0;
   bool _isExecutingRecipe = false;
 
-  // Alarms
+  // Alarms and maintenance
   List<Alarm> _alarms = [];
   List<String> _activeAlarms = [];
-
-  // Maintenance Tasks
   List<MaintenanceTask> _maintenanceTasks = [];
+
+  String _temperatureTrend = 'stable';
+  String _pressureTrend = 'stable';
+  String _gasFlowTrend = 'stable';
+  double _systemHealth = 1.0;
+  Map<String, double> _componentHealth = {
+    'Chamber': 1.0,
+    'Pump': 1.0,
+    'Gas Delivery': 1.0,
+    'Heater': 1.0,
+  };
+  List<double> _temperatureHistory = [];
+  List<double> _pressureHistory = [];
+  List<double> _gasFlowHistory = [];
 
   // Logs
   List<LogEntry> _logEntries = [];
-
-
 
   // Getters
   double get n2Purity => _n2Purity;
@@ -103,6 +92,15 @@ class ReactorState extends ChangeNotifier {
   List<String> get activeAlarms => _activeAlarms;
   List<MaintenanceTask> get maintenanceTasks => _maintenanceTasks;
   List<LogEntry> get logEntries => _logEntries;
+  String get temperatureTrend => _temperatureTrend;
+  String get pressureTrend => _pressureTrend;
+  String get gasFlowTrend => _gasFlowTrend;
+  double get systemHealth => _systemHealth;
+  Map<String, double> get componentHealth => _componentHealth;
+  List<double> get temperatureHistory => _temperatureHistory;
+  List<double> get pressureHistory => _pressureHistory;
+  List<double> get gasFlowHistory => _gasFlowHistory;
+
 
   ReactorState() {
     _hardwareInterface.startUpdates((data) {
@@ -115,13 +113,66 @@ class ReactorState extends ChangeNotifier {
     _startRealtimeUpdates();
   }
 
+  get powerLevel => 2.4;
+
+  void _updateTrends() {
+    _temperatureTrend = _calculateTrend(_temperatureHistory);
+    _pressureTrend = _calculateTrend(_pressureHistory);
+    _gasFlowTrend = _calculateTrend(_gasFlowHistory);
+  }
+
+  String _calculateTrend(List<double> history) {
+    if (history.length < 2) return 'stable';
+    double diff = history.last - history[history.length - 2];
+    if (diff.abs() < 0.1) return 'stable';
+    return diff > 0 ? 'up' : 'down';
+  }
+
+  void _updateSystemHealth() {
+    // Simulate system health changes
+    _componentHealth.forEach((key, value) {
+      _componentHealth[key] = (value + (0.9 + 0.2 * (Random().nextDouble() - 0.5))).clamp(0.0, 1.0);
+    });
+
+    _systemHealth = _componentHealth.values.reduce((a, b) => a + b) / _componentHealth.length;
+  }
+
+  void _updateHistoricalData() {
+    _temperatureHistory.add(_chamberTemperature);
+    _pressureHistory.add(_chamberPressure);
+    _gasFlowHistory.add(_n2FlowRate);
+
+    if (_temperatureHistory.length > 100) {
+      _temperatureHistory.removeAt(0);
+      _pressureHistory.removeAt(0);
+      _gasFlowHistory.removeAt(0);
+    }
+
+    _updateTrends();
+    _updateSystemHealth();
+  }
+
+  @override
+  void _updateReadings() {
+    _hardwareInterface.getRealtimeData().then((data) {
+      _n2FlowRate = data['n2FlowRate'];
+      _mfcFlowRate = data['mfcFlowRate'];
+      _chamberTemperature = data['chamberTemperature'];
+      _chamberPressure = data['chamberPressure'];
+
+      _updateHistoricalData();
+      notifyListeners();
+    });
+  }
+
+
   void _startRealtimeUpdates() {
     _updateTimer = Timer.periodic(Duration(seconds: 1), (_) {
       _updateReadings();
     });
   }
 
-  // N2 Generator methods
+  // Hardware control methods
   Future<void> setN2FlowRate(double rate) async {
     try {
       await _hardwareInterface.setN2FlowRate(rate);
@@ -135,7 +186,6 @@ class ReactorState extends ChangeNotifier {
     }
   }
 
-  // Mass Flow Controller methods
   Future<void> setMFCFlowRate(double rate) async {
     try {
       await _hardwareInterface.setMFCFlowRate(rate);
@@ -149,7 +199,6 @@ class ReactorState extends ChangeNotifier {
     }
   }
 
-  // Valve methods
   void toggleValve(int index) {
     if (index >= 0 && index < _valveStatuses.length) {
       _valveStatuses[index] = !_valveStatuses[index];
@@ -162,7 +211,6 @@ class ReactorState extends ChangeNotifier {
     }
   }
 
-  // Precursor Container methods
   Future<void> setPrecursorTemperature(int index, double temperature) async {
     try {
       await _hardwareInterface.setPrecursorTemperature(index, temperature);
@@ -189,7 +237,6 @@ class ReactorState extends ChangeNotifier {
     }
   }
 
-  // Chamber methods
   Future<void> setChamberTemperature(double temperature) async {
     try {
       await _hardwareInterface.setChamberTemperature(temperature);
@@ -216,7 +263,6 @@ class ReactorState extends ChangeNotifier {
     }
   }
 
-  // Heater methods
   Future<void> setFrontlineHeaterTemperature(double temperature) async {
     try {
       await _hardwareInterface.setFrontlineHeaterTemperature(temperature);
@@ -243,7 +289,6 @@ class ReactorState extends ChangeNotifier {
     }
   }
 
-  // Pressure Controller methods
   Future<void> setPressureSetpoint(double pressure) async {
     try {
       await _hardwareInterface.setPressureSetpoint(pressure);
@@ -257,14 +302,13 @@ class ReactorState extends ChangeNotifier {
     }
   }
 
-  // Pump methods
   void togglePump() {
     _pumpStatus = !_pumpStatus;
     Logger.log('Pump ${_pumpStatus ? 'started' : 'stopped'}');
     notifyListeners();
   }
 
-  // Recipe methods
+  // Recipe execution methods
   Future<void> loadRecipe(Recipe recipe) async {
     _currentRecipe = recipe;
     _currentStepIndex = 0;
@@ -464,18 +508,7 @@ class ReactorState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _updateReadings() {
-    _hardwareInterface.getRealtimeData().then((data) {
-      // Update all relevant properties with the new data
-      _n2FlowRate = data['n2FlowRate'];
-      _mfcFlowRate = data['mfcFlowRate'];
-      _chamberTemperature = data['chamberTemperature'];
-      _chamberPressure = data['chamberPressure'];
-      // ... update other properties ...
 
-      notifyListeners();
-    });
-  }
 
   void _updateSystemStatus(String status) {
     _systemStatus = status;
@@ -526,6 +559,7 @@ class ReactorState extends ChangeNotifier {
   @override
   void dispose() {
     _hardwareInterface.stopUpdates();
+    _updateTimer?.cancel();
     super.dispose();
   }
 }
