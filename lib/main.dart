@@ -1,16 +1,22 @@
 // lib/main.dart
+import 'package:ald_machine_app/screens/user_management_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'models/dashboard_state.dart';
 import 'models/recipe_state.dart';
 import 'models/reactor_state.dart';
+import 'models/user.dart';
 import 'screens/dashboard_screen.dart';
+import 'models/user_state.dart';
 import 'screens/recipe_management_screen.dart';
 import 'screens/log_view_screen.dart';
 import 'screens/alarm_management_screen.dart';
 import 'screens/maintenance_screen.dart';
 import 'screens/reactor_control_screen.dart';
+import 'screens/login_screen.dart';
 import 'styles/theme.dart';
+import 'widgets/role_based_access.dart';
+import 'screens/user_profile_screen.dart';
 
 void main() {
   runApp(
@@ -19,6 +25,7 @@ void main() {
         ChangeNotifierProvider(create: (context) => DashboardState()),
         ChangeNotifierProvider(create: (context) => RecipeState()),
         ChangeNotifierProvider(create: (context) => ReactorState()),
+        ChangeNotifierProvider(create: (context) => UserState()),
       ],
       child: ALDMachineApp(),
     ),
@@ -31,7 +38,11 @@ class ALDMachineApp extends StatelessWidget {
     return MaterialApp(
       title: 'ALD Machine Control',
       theme: aldTheme(),
-      home: HomePage(),
+      home: Consumer<UserState>(
+        builder: (context, userState, child) {
+          return userState.currentUser == null ? LoginScreen() : HomePage();
+        },
+      ),
     );
   }
 }
@@ -51,6 +62,10 @@ class _HomePageState extends State<HomePage> {
     AlarmManagementScreen(),
     MaintenanceScreen(),
     ReactorControlScreen(),
+    RoleBasedAccess(
+      allowedRoles: [UserRole.admin],
+      child: UserManagementScreen(),
+    ),
   ];
 
   void _onItemTapped(int index) {
@@ -61,12 +76,33 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final userState = Provider.of<UserState>(context);
+    final isAdmin = userState.currentUser?.role == UserRole.admin;
+
     return Scaffold(
+      appBar: AppBar(
+        title: Text('ALD Machine Control'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => UserProfileScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () => _logout(context),
+          ),
+        ],
+      ),
       body: Center(
         child: _widgetOptions.elementAt(_selectedIndex),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
             label: 'Dashboard',
@@ -91,6 +127,11 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.science),
             label: 'Reactor',
           ),
+          if (isAdmin)
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people),
+              label: 'Users',
+            ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Theme.of(context).primaryColor,
@@ -98,6 +139,37 @@ class _HomePageState extends State<HomePage> {
         type: BottomNavigationBarType.fixed,
         onTap: _onItemTapped,
       ),
+    );
+  }
+
+  void _logout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Logout'),
+          content: Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final userState = Provider.of<UserState>(context, listen: false);
+                userState.logout();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
+                );
+              },
+              child: Text('Logout'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
