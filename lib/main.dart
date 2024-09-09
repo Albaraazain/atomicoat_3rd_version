@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'package:ald_machine_app/screens/user_management_screen.dart';
+import 'package:ald_machine_app/utils/role_based_access.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'models/dashboard_state.dart';
@@ -55,29 +56,24 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  static final List<Widget> _widgetOptions = <Widget>[
-    DashboardScreen(),
-    RecipeManagementScreen(),
-    LogViewScreen(),
-    AlarmManagementScreen(),
-    MaintenanceScreen(),
-    ReactorControlScreen(),
-    RoleBasedAccess(
-      allowedRoles: [UserRole.admin],
-      child: UserManagementScreen(),
-    ),
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     final userState = Provider.of<UserState>(context);
-    final isAdmin = userState.currentUser?.role == UserRole.admin;
+    final currentUser = userState.currentUser!;
+
+    final List<Widget> _widgetOptions = <Widget>[
+      DashboardScreen(),
+      if (hasPermission(currentUser.role, Permissions.adminAndEngineer))
+        RecipeManagementScreen(),
+      LogViewScreen(),
+      AlarmManagementScreen(),
+      if (hasPermission(currentUser.role, Permissions.adminAndEngineer))
+        MaintenanceScreen(),
+      ReactorControlScreen(),
+      if (hasPermission(currentUser.role, Permissions.adminOnly))
+        UserManagementScreen(),
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -98,19 +94,18 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
-      ),
+      body: _widgetOptions.elementAt(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.book),
-            label: 'Recipes',
-          ),
+          if (hasPermission(currentUser.role, Permissions.adminAndEngineer))
+            BottomNavigationBarItem(
+              icon: Icon(Icons.book),
+              label: 'Recipes',
+            ),
           BottomNavigationBarItem(
             icon: Icon(Icons.list),
             label: 'Log',
@@ -119,15 +114,16 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.alarm),
             label: 'Alarms',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.build),
-            label: 'Maintenance',
-          ),
+          if (hasPermission(currentUser.role, Permissions.adminAndEngineer))
+            BottomNavigationBarItem(
+              icon: Icon(Icons.build),
+              label: 'Maintenance',
+            ),
           BottomNavigationBarItem(
             icon: Icon(Icons.science),
             label: 'Reactor',
           ),
-          if (isAdmin)
+          if (hasPermission(currentUser.role, Permissions.adminOnly))
             BottomNavigationBarItem(
               icon: Icon(Icons.people),
               label: 'Users',
@@ -136,12 +132,16 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _selectedIndex,
         selectedItemColor: Theme.of(context).primaryColor,
         unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
         onTap: _onItemTapped,
       ),
     );
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
   void _logout(BuildContext context) {
     showDialog(
       context: context,
