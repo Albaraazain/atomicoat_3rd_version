@@ -6,6 +6,7 @@ import 'recipe.dart';
 import '../services/logger.dart';
 import 'alarm.dart';
 import 'maintenance_task.dart';
+import 'dart:async';
 
 class PrecursorContainer {
   double temperature;
@@ -19,8 +20,12 @@ class PrecursorContainer {
   });
 }
 
+
+
 class ReactorState extends ChangeNotifier {
   final ALDHardwareInterface _hardwareInterface = ALDHardwareInterface();
+  Timer? _updateTimer;
+
 
   // N2 Generator
   double _n2Purity = 99.9;
@@ -74,6 +79,8 @@ class ReactorState extends ChangeNotifier {
   // Logs
   List<LogEntry> _logEntries = [];
 
+
+
   // Getters
   double get n2Purity => _n2Purity;
   double get n2FlowRate => _n2FlowRate;
@@ -98,7 +105,20 @@ class ReactorState extends ChangeNotifier {
   List<LogEntry> get logEntries => _logEntries;
 
   ReactorState() {
-    _hardwareInterface.startUpdates(_updateReadings);
+    _hardwareInterface.startUpdates((data) {
+      _n2FlowRate = data['n2FlowRate'];
+      _mfcFlowRate = data['mfcFlowRate'];
+      _chamberTemperature = data['chamberTemperature'];
+      _chamberPressure = data['chamberPressure'];
+      notifyListeners();
+    });
+    _startRealtimeUpdates();
+  }
+
+  void _startRealtimeUpdates() {
+    _updateTimer = Timer.periodic(Duration(seconds: 1), (_) {
+      _updateReadings();
+    });
   }
 
   // N2 Generator methods
@@ -444,26 +464,17 @@ class ReactorState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Update methods
-  void _updateReadings(Map<String, dynamic> readings) {
-    _n2FlowRate = readings['n2FlowRate'];
-    _mfcFlowRate = readings['mfcFlowRate'];
-    _mfcPressure = readings['mfcPressure'];
-    _mfcCorrection = readings['mfcCorrection'];
-    _chamberTemperature = readings['chamberTemperature'];
-    _chamberPressure = readings['chamberPressure'];
-    _actualPressure = readings['actualPressure'];
+  void _updateReadings() {
+    _hardwareInterface.getRealtimeData().then((data) {
+      // Update all relevant properties with the new data
+      _n2FlowRate = data['n2FlowRate'];
+      _mfcFlowRate = data['mfcFlowRate'];
+      _chamberTemperature = data['chamberTemperature'];
+      _chamberPressure = data['chamberPressure'];
+      // ... update other properties ...
 
-    List<Map<String, dynamic>> precursorData = readings['precursorContainers'];
-    for (int i = 0; i < precursorData.length; i++) {
-      _precursorContainers[i].temperature = precursorData[i]['temperature'];
-      _precursorContainers[i].fillLevel = precursorData[i]['fillLevel'];
-      _precursorContainers[i].status = precursorData[i]['status'];
-    }
-
-    checkAlarms();
-    checkMaintenanceTasks();
-    notifyListeners();
+      notifyListeners();
+    });
   }
 
   void _updateSystemStatus(String status) {

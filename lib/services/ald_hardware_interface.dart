@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math';
 
 class ALDHardwareInterface {
+  final Random _random = Random();
   // Simulate hardware readings
   double _n2FlowRate = 20.0;
   List<double> _precursorTemperatures = [25.0, 32.0, 25.0];
@@ -18,6 +19,25 @@ class ALDHardwareInterface {
 
   // Simulate hardware control
   Timer? _updateTimer;
+
+  Future<Map<String, dynamic>> getRealtimeData() async {
+    // Simulate a brief delay for network communication
+    await Future.delayed(Duration(milliseconds: 100));
+
+    return {
+      'n2FlowRate': _simulateReading(20.0, 0.5),
+      'mfcFlowRate': _simulateReading(10.0, 0.2),
+      'chamberTemperature': _simulateReading(200.0, 1.0),
+      'chamberPressure': _simulateReading(1.0, 0.05),
+      // Add more simulated readings as needed
+    };
+  }
+
+  double _simulateReading(double baseValue, double maxVariation) {
+    return baseValue + (_random.nextDouble() * 2 - 1) * maxVariation;
+  }
+
+
 
   void startUpdates(Function(Map<String, dynamic>) updateCallback) {
     _updateTimer = Timer.periodic(Duration(seconds: 1), (_) {

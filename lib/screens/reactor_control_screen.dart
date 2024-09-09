@@ -1,5 +1,3 @@
-// lib/screens/reactor_control_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/reactor_state.dart';
@@ -8,29 +6,39 @@ import '../widgets/interactive_system_diagram.dart';
 import '../widgets/global_controls_bar.dart';
 import '../widgets/alert_status_bar.dart';
 import '../widgets/component_control_panel.dart';
+import '../widgets/force_landscape.dart';
 
 class ReactorControlScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Reactor Control')),
-      body: Consumer<ReactorState>(
-        builder: (context, reactorState, child) {
-          return Column(
-            children: [
-              Expanded(
-                child: InteractiveSystemDiagram(
+    return ForceLandscape(
+      child: Scaffold(
+        body: Consumer<ReactorState>(
+          builder: (context, reactorState, child) {
+            return Stack(
+              children: [
+                InteractiveSystemDiagram(
                   reactorState: reactorState,
-                  onComponentTap: (ComponentType type) {
+                  onTapComponent: (ComponentType type) {
                     _showComponentControlPanel(context, type, reactorState);
                   },
                 ),
-              ),
-              GlobalControlsBar(reactorState: reactorState),
-              AlertStatusBar(reactorState: reactorState),
-            ],
-          );
-        },
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GlobalControlsBar(reactorState: reactorState),
+                      AlertStatusBar(reactorState: reactorState),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

@@ -1,11 +1,13 @@
-// lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/component_type.dart';
 import '../models/dashboard_state.dart';
 import '../models/recipe_state.dart';
 import '../models/reactor_state.dart';
+import '../models/component_type.dart';
+import '../widgets/real_time_chart.dart';
 import '../widgets/interactive_system_diagram.dart';
+import '../widgets/component_control_panel.dart';
+import '../widgets/force_landscape.dart';
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -13,89 +15,142 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  bool _showSystemDiagram = false;
+  bool _showDiagram = false;
 
   @override
   Widget build(BuildContext context) {
-    return Consumer3<DashboardState, RecipeState, ReactorState>(
-      builder: (context, dashboardState, recipeState, reactorState, child) {
-        return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildViewToggle(),
-                if (_showSystemDiagram)
-                  _buildSystemDiagramView(reactorState)
-                else
-                  ...[
-                    if (dashboardState.errorMessage != null)
-                      _buildErrorMessage(context, dashboardState),
-                    _buildRecipeSelector(context, dashboardState, recipeState),
-                    SizedBox(height: 20),
-                    _buildStatusIndicator(dashboardState),
-                    SizedBox(height: 20),
-                    _buildProgressIndicator(dashboardState),
-                    SizedBox(height: 20),
-                    _buildLoopStack(dashboardState),
-                    SizedBox(height: 20),
-                    _buildKeyParameters(dashboardState),
-                    SizedBox(height: 20),
-                    _buildControlButtons(context, dashboardState),
-                    SizedBox(height: 20),
-                    _buildRecentAlerts(dashboardState),
-                  ],
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    return _showDiagram
+        ? _buildLandscapeSystemDiagramView()
+        : _buildPortraitDashboardView();
   }
 
-  Widget _buildViewToggle() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text(_showSystemDiagram ? 'System Diagram' : 'Dashboard'),
-        Switch(
-          value: _showSystemDiagram,
-          onChanged: (value) {
-            setState(() {
-              _showSystemDiagram = value;
-            });
+  Widget _buildLandscapeSystemDiagramView() {
+    return ForceLandscape(
+      child: Scaffold(
+        body: Consumer2<ReactorState, DashboardState>(
+          builder: (context, reactorState, dashboardState, child) {
+            return Stack(
+              children: [
+                InteractiveSystemDiagram(
+                  reactorState: reactorState,
+                  onTapComponent: (ComponentType type) {
+                    _showComponentControlPanel(context, type, reactorState);
+                  },
+                ),
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: _buildMiniStatusCard(dashboardState),
+                ),
+                Positioned(
+                  bottom: 10,
+                  left: 10,
+                  right: 10,
+                  child: _buildControlPanel(dashboardState),
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () {
+                      setState(() {
+                        _showDiagram = false;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            );
           },
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildSystemDiagramView(ReactorState reactorState) {
-    return Container(
-      height: 500, // Adjust as needed
-      child: InteractiveSystemDiagram(
-        reactorState: reactorState,
-        onComponentTap: (ComponentType type) {
-          // Handle component tap if needed
+  Widget _buildPortraitDashboardView() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('ALD Machine Dashboard'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.fullscreen),
+            onPressed: () {
+              setState(() {
+                _showDiagram = true;
+              });
+            },
+          ),
+        ],
+      ),
+      body: Consumer3<DashboardState, RecipeState, ReactorState>(
+        builder: (context, dashboardState, recipeState, reactorState, child) {
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildRecipeSelector(dashboardState, recipeState),
+                  SizedBox(height: 20),
+                  _buildStatusIndicator(dashboardState),
+                  SizedBox(height: 20),
+                  _buildKeyParameters(reactorState),
+                  SizedBox(height: 20),
+                  _buildControlButtons(dashboardState),
+                  SizedBox(height: 20),
+                  _buildRealtimeChart(reactorState),
+                  SizedBox(height: 20),
+                  _buildRecentAlerts(dashboardState),
+                ],
+              ),
+            ),
+          );
         },
       ),
     );
   }
 
-  Widget _buildErrorMessage(BuildContext context, DashboardState state) {
+  Widget _buildMiniStatusCard(DashboardState state) {
     return Card(
-      color: Colors.red[100],
+      color: Colors.white.withOpacity(0.8),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Current Step: ${state.currentStep}'),
+            Text('Elapsed: ${state.elapsedTime}'),
+            Text('ETA: ${state.estimatedCompletion}'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlPanel(DashboardState state) {
+    return Card(
+      color: Colors.white.withOpacity(0.8),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Icon(Icons.error, color: Colors.red),
-            SizedBox(width: 8),
-            Expanded(child: Text(state.errorMessage!, style: TextStyle(color: Colors.red))),
-            IconButton(
-              icon: Icon(Icons.close),
-              onPressed: state.clearError,
+            ElevatedButton(
+              onPressed: state.startProcess,
+              child: Text('Start'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            ),
+            ElevatedButton(
+              onPressed: state.pauseProcess,
+              child: Text('Pause'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            ),
+            ElevatedButton(
+              onPressed: state.stopProcess,
+              child: Text('Stop'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             ),
           ],
         ),
@@ -103,7 +158,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildRecipeSelector(BuildContext context, DashboardState dashboardState, RecipeState recipeState) {
+  void _showComponentControlPanel(BuildContext context, ComponentType type, ReactorState reactorState) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SingleChildScrollView(
+          child: Container(
+            padding: EdgeInsets.all(16),
+            child: ComponentControlPanel(type: type, reactorState: reactorState),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRecipeSelector(DashboardState dashboardState, RecipeState recipeState) {
     return DropdownButton<String>(
       value: dashboardState.currentRecipe?.id,
       hint: Text('Select a recipe'),
@@ -159,41 +228,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildProgressIndicator(DashboardState state) {
-    double progress = state.totalSteps > 0 ? state.currentStepIndex / state.totalSteps : 0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Progress:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        SizedBox(height: 5),
-        LinearProgressIndicator(value: progress),
-        SizedBox(height: 5),
-        Text('Step ${state.currentStepIndex} of ${state.totalSteps}'),
-      ],
-    );
-  }
-
-  Widget _buildLoopStack(DashboardState state) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Loop Stack:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        SizedBox(height: 5),
-        if (state.currentLoopStack.isEmpty)
-          Text('No active loops')
-        else
-          Column(
-            children: state.currentLoopStack.asMap().entries.map((entry) {
-              int index = entry.key;
-              LoopInfo loop = entry.value;
-              return Text('Loop ${index + 1}: Iteration ${loop.currentIteration} of ${loop.totalIterations}');
-            }).toList(),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildKeyParameters(DashboardState state) {
+  Widget _buildKeyParameters(ReactorState state) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -202,9 +237,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildParameterCard('Temperature', '${state.temperature.toStringAsFixed(1)}°C', Colors.red),
-            _buildParameterCard('Pressure', '${state.pressure.toStringAsFixed(1)} mTorr', Colors.blue),
-            _buildParameterCard('Gas Flow', '${state.gasFlow.toStringAsFixed(1)} sccm', Colors.green),
+            _buildParameterCard('Temperature', '${state.chamberTemperature.toStringAsFixed(1)}°C', Colors.red),
+            _buildParameterCard('Pressure', '${state.chamberPressure.toStringAsFixed(1)} mTorr', Colors.blue),
+            _buildParameterCard('Gas Flow', '${state.n2FlowRate.toStringAsFixed(1)} sccm', Colors.green),
           ],
         ),
       ],
@@ -226,7 +261,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildControlButtons(BuildContext context, DashboardState state) {
+  Widget _buildControlButtons(DashboardState state) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -246,6 +281,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
         ),
       ],
+    );
+  }
+
+  Widget _buildRealtimeChart(ReactorState state) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Real-time Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 10),
+            SizedBox(
+              height: 200,
+              child: RealTimeChart(reactorState: state),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
